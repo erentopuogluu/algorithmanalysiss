@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DiffViz -- Myers O(ND) Diff Algorithm | Eren Topuoglu</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+:root{
+  --bg:#09090c;--s1:#0f0f14;--s2:#15151d;--s3:#1c1c27;--s4:#232330;
+  --b1:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.11);--b3:rgba(255,255,255,0.18);
+  --tx:#edeae0;--t2:#99948a;--t3:#5a5650;--t4:#322f2a;
+  --green:#4ade80;--gbg:rgba(74,222,128,0.08);--gbd:rgba(74,222,128,0.25);
+  --red:#f87171;--rbg:rgba(248,113,113,0.08);--rbd:rgba(248,113,113,0.25);
+  --blue:#60a5fa;--bbg:rgba(96,165,250,0.09);--bbd:rgba(96,165,250,0.28);
+  --amber:#fbbf24;--ambg:rgba(251,191,36,0.09);--ambd:rgba(251,191,36,0.26);
+  --purple:#c084fc;--pubg:rgba(192,132,252,0.09);
+  --teal:#2dd4bf;--tebg:rgba(45,212,191,0.08);
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --display:'Syne',sans-serif;
+  --r:10px;--rs:6px
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--tx);font-size:14px;line-height:1.65;min-height:100vh}
+.app{max-width:980px;margin:0 auto;padding:0 20px 80px}
+.hero{padding:52px 0 36px;border-bottom:1px solid var(--b1);margin-bottom:28px}
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+.pill{font-size:10px;font-weight:600;padding:3px 11px;border-radius:100px;letter-spacing:.05em;text-transform:uppercase}
+.p-b{background:var(--bbg);color:var(--blue);border:1px solid var(--bbd)}
+.p-a{background:var(--ambg);color:var(--amber);border:1px solid var(--ambd)}
+.p-p{background:var(--pubg);color:var(--purple);border:1px solid rgba(192,132,252,.28)}
+.p-t{background:var(--tebg);color:var(--teal);border:1px solid rgba(45,212,191,.28)}
+.p-g{background:var(--gbg);color:var(--green);border:1px solid var(--gbd)}
+h1{font-family:var(--display);font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-1.5px;line-height:1.1;margin-bottom:14px}
+h1 em{font-style:normal;color:var(--blue)}
+.hero-sub{font-size:13px;color:var(--t2);max-width:660px;line-height:1.75}
+.cite{font-style:italic;color:var(--t3)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px;margin-top:28px}
+.sc{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px;transition:border-color .2s}
+.sc:hover{border-color:var(--b2)}
+.sl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.sv{font-size:22px;font-weight:700;font-family:var(--mono);line-height:1}
+.sv-b{color:var(--blue)}.sv-g{color:var(--green)}.sv-r{color:var(--red)}.sv-a{color:var(--amber)}.sv-p{color:var(--purple)}
+.tabs-bar{position:sticky;top:0;z-index:50;background:var(--bg);padding:12px 0 0;margin-bottom:24px;border-bottom:1px solid var(--b1)}
+.tabs{display:flex;gap:2px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:4px;width:fit-content;overflow-x:auto}
+.tab{display:flex;align-items:center;gap:7px;padding:9px 17px;border-radius:7px;font-size:13px;font-weight:500;color:var(--t2);cursor:pointer;border:none;background:none;transition:all .14s;white-space:nowrap}
+.tab:hover{color:var(--tx);background:var(--s2)}
+.tab.on{background:var(--s3);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.tab svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.panel{display:none;animation:fi .18s ease}
+.panel.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.sec{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--b1)}
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.card-h{padding:9px 16px;background:var(--s2);border-bottom:1px solid var(--b1);font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:center;gap:7px}
+.card-h svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.card-b{padding:18px 20px}
+.ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:580px){.ed-grid{grid-template-columns:1fr}}
+.ed-wrap label{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.dot{width:8px;height:8px;border-radius:50%}
+.dr{background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.4)}
+.dg{background:var(--green);box-shadow:0 0 6px rgba(74,222,128,.4)}
+textarea{width:100%;min-height:155px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:13px;color:var(--tx);font-family:var(--mono);font-size:12.5px;line-height:1.7;resize:vertical;outline:none;transition:border-color .15s}
+textarea:focus{border-color:var(--b3)}
+.btn-row{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:1px solid;transition:all .14s}
+.btn:active{transform:scale(.97)}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.btn-pr{background:var(--bbg);border-color:var(--bbd);color:var(--blue)}
+.btn-pr:hover{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-gh{background:transparent;border-color:var(--b2);color:var(--t2)}
+.btn-gh:hover{background:var(--s2);color:var(--tx);border-color:var(--b3)}
+.diff-shell{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);overflow:hidden;font-family:var(--mono);font-size:12.5px}
+.diff-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--b1);flex-wrap:wrap}
+.df{font-size:12px;color:var(--t2);font-weight:500}
+.chips{display:flex;gap:7px;margin-left:auto}
+.chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:100px}
+.chip-g{background:var(--gbg);color:var(--green);border:1px solid var(--gbd)}
+.chip-r{background:var(--rbg);color:var(--red);border:1px solid var(--rbd)}
+.chip-b{background:var(--bbg);color:var(--blue);border:1px solid var(--bbd)}
+.dl{display:flex;align-items:stretch;min-height:22px}
+.dl:hover{background:rgba(255,255,255,.012)}
+.lno,.lnn{min-width:38px;text-align:right;padding:1px 8px;font-size:11px;user-select:none;border-right:1px solid var(--b1);line-height:22px;color:var(--t4)}
+.dsym{width:20px;text-align:center;line-height:22px;font-weight:700;flex-shrink:0}
+.dc{padding:1px 12px 1px 2px;white-space:pre;overflow-x:auto;flex:1;line-height:22px}
+.dl-a{background:var(--gbg);border-left:2px solid var(--green)}.dl-a .lno{color:transparent}.dl-a .lnn{color:var(--green);opacity:.7}.dl-a .dsym{color:var(--green)}.dl-a .dc{color:var(--green)}
+.dl-d{background:var(--rbg);border-left:2px solid var(--red)}.dl-d .lno{color:var(--red);opacity:.7}.dl-d .lnn{color:transparent}.dl-d .dsym{color:var(--red)}.dl-d .dc{color:var(--red)}
+.dl-c{border-left:2px solid transparent}.dl-c .lno,.dl-c .lnn{color:var(--t3)}.dl-c .dsym{color:var(--t3)}.dl-c .dc{color:var(--t2)}
+.dl-h{background:var(--bbg);border-left:2px solid var(--blue)}.dl-h .dc{color:var(--blue);font-style:italic;padding-left:8px}
+.tc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);margin-bottom:16px}
+.cb{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--b2);background:transparent;color:var(--t2);transition:all .12s}
+.cb:hover:not(:disabled){background:var(--s2);color:var(--tx);border-color:var(--b3)}
+.cb:disabled{opacity:.3;cursor:default}
+.cb.ap{background:var(--ambg);border-color:var(--ambd);color:var(--amber)}
+.cb svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.sbadge{margin-left:auto;font-size:12px;font-family:var(--mono);color:var(--t2);background:var(--s2);border:1px solid var(--b1);padding:4px 10px;border-radius:100px}
+.spd{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t3)}
+.spd input{width:75px;accent-color:var(--blue)}
+.tg{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-bottom:14px}
+@media(max-width:640px){.tg{grid-template-columns:1fr}}
+canvas#gc{display:block;width:100%;height:310px}
+.ops-list{padding:8px;max-height:310px;overflow-y:auto}
+.op-row{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:7px;margin-bottom:2px;font-size:12px;transition:background .1s;border:1px solid transparent}
+.op-row.cur{background:var(--bbg);border-color:var(--bbd)}
+.oi{min-width:24px;font-family:var(--mono);font-size:10px;color:var(--t3);padding-top:2px}
+.ot{font-family:var(--mono);font-weight:600;font-size:11px;padding:2px 7px;border-radius:100px;white-space:nowrap}
+.ot-eq{background:rgba(148,163,184,.1);color:#94a3b8}
+.ot-d{background:var(--rbg);color:var(--red)}
+.ot-i{background:var(--gbg);color:var(--green)}
+.od{color:var(--t2);flex:1;line-height:1.5}
+.oc{font-family:var(--mono);font-size:10px;color:var(--t3);padding-top:2px}
+.cur-box{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r);padding:14px 18px;margin-bottom:14px;font-size:13px;font-family:var(--mono);color:var(--t2)}
+.th-block{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:22px 24px;margin-bottom:14px}
+.th-block h2{font-family:var(--display);font-size:17px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px;color:var(--tx)}
+.th-block h2 svg{width:17px;height:17px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round}
+.th-block p{font-size:13px;color:var(--t2);line-height:1.78;margin-bottom:12px}
+.th-block p:last-child{margin-bottom:0}
+.cb2{background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.78;overflow-x:auto;margin:12px 0;color:var(--tx)}
+.kw{color:var(--purple)}.fn{color:var(--blue)}.cm{color:var(--t3);font-style:italic}.sr{color:var(--green)}.nm{color:var(--amber)}
+.f{font-family:var(--mono);background:var(--s3);padding:2px 8px;border-radius:4px;font-size:12px;color:var(--amber)}
+.proof{background:var(--ambg);border:1px solid var(--ambd);border-radius:var(--rs);padding:16px 18px;margin:14px 0}
+.proof-lbl{font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.proof-lbl svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.proof p{font-size:13px;color:var(--t2);line-height:1.75}
+.info-b{background:var(--bbg);border:1px solid var(--bbd);border-radius:var(--rs);padding:14px 17px;margin:12px 0;font-size:13px;color:var(--t2);line-height:1.75}
+.cx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:11px;margin-bottom:24px}
+.cx-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:17px}
+.cx-lbl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px}
+.cx-f{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--blue);margin-bottom:7px}
+.cx-n{font-size:12px;color:var(--t2);line-height:1.6}
+.arch-wrap{background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);overflow:hidden;margin:12px 0}
+canvas.arch{display:block;width:100%}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s4);border-radius:3px}
+.footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.footer-l{font-size:12px;color:var(--t3)}
+.footer-r{font-size:11px;color:var(--t3);font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="hero">
+  <div class="pills">
+    <span class="pill p-b">Eren Topuoglu</span>
+    <span class="pill p-a">Myers 1986 . Algorithmica</span>
+    <span class="pill p-p">Algorithm Analysis Final</span>
+    <span class="pill p-t">Version Control</span>
+    <span class="pill p-g">O(ND) . O(N) Space</span>
+  </div>
+  <h1>DiffViz -- <em>Myers O(ND)</em><br>Difference Algorithm</h1>
+  <p class="hero-sub">
+    <span class="cite">Myers, E.W. (1986). "An O(ND) Difference Algorithm and Its Variations." Algorithmica, 1(1–4), 251–266.</span><br>
+    A project that analyzes, fully implements and interactively visualizes the Myers algorithm -- the engine behind Git, GNU diff, and VS Code's diff tool -- transforming the LCS problem into a shortest-path problem on an edit graph.
+  </p>
+  <div class="stats">
+    <div class="sc"><div class="sl">Time</div><div class="sv sv-b" id="s-t">O(ND)</div></div>
+    <div class="sc"><div class="sl">Space</div><div class="sv sv-b" id="s-s">O(N)</div></div>
+    <div class="sc"><div class="sl">Insertions</div><div class="sv sv-g" id="s-i">--</div></div>
+    <div class="sc"><div class="sl">Deletions</div><div class="sv sv-r" id="s-d">--</div></div>
+    <div class="sc"><div class="sl">Edit Dist.</div><div class="sv sv-a" id="s-e">--</div></div>
+    <div class="sc"><div class="sl">Similarity</div><div class="sv sv-p" id="s-sim">--</div></div>
+  </div>
+</header>
+
+<div class="tabs-bar">
+  <div class="tabs">
+    <button class="tab on" onclick="sw('diff')">
+      <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V9l-6-6z"/><polyline points="14 3 14 9 20 9"/></svg>Diff Tool
+    </button>
+    <button class="tab" onclick="sw('trace')">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Step Tracer
+    </button>
+    <button class="tab" onclick="sw('theory')">
+      <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>Theory &amp; Proof
+    </button>
+    <button class="tab" onclick="sw('arch')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Architecture
+    </button>
+    <button class="tab" onclick="sw('bench')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Complexity
+    </button>
+
+  </div>
+</div>
+
+<!-- DIFF -->
+<div class="panel on" id="panel-diff">
+  <div class="sec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>File Comparison -- Unified Diff Output</div>
+  <div class="ed-grid">
+    <div class="ed-wrap"><label><span class="dot dr"></span>File A -- Original</label>
+      <textarea id="tA" spellcheck="false">def calculate(x, y):
+    result = x + y
+    print(result)
+    return result
+
+def main():
+    a = 10
+    b = 20
+    calculate(a, b)
+    print("Done")</textarea>
+    </div>
+    <div class="ed-wrap"><label><span class="dot dg"></span>File B -- Modified</label>
+      <textarea id="tB" spellcheck="false">def calculate(x, y, z=0):
+    result = x + y + z
+    if result < 0:
+        raise ValueError("Negative result")
+    return result
+
+def main():
+    a = 10
+    b = 20
+    c = 5
+    calculate(a, b, c)
+    print("Completed")</textarea>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-pr" onclick="runDiff()">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Compute Diff (Myers)
+    </button>
+    <button class="btn btn-gh" onclick="ls('stack')">Stack Example</button>
+    <button class="btn btn-gh" onclick="ls('git')">Git Commit Example</button>
+    <button class="btn btn-gh" onclick="ls('clear')">Clear</button>
+  </div>
+  <div id="diff-out"></div>
+</div>
+
+<!-- TRACE -->
+<div class="panel" id="panel-trace">
+  <div class="sec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Algorithm Execution -- Edit Graph Animation</div>
+  <div class="tc">
+    <button class="cb" id="b-first" onclick="goF()"><svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>
+    <button class="cb" id="b-prev" onclick="sP()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back</button>
+    <button class="cb" id="b-play" onclick="tP()"><svg id="pi" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg><span id="pl">Play</span></button>
+    <button class="cb" id="b-next" onclick="sN()">Next<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <button class="cb" id="b-last" onclick="goL()"><svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></button>
+    <button class="cb" onclick="rT()"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg></button>
+    <div class="spd"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>Speed: <input type="range" id="spd" min="1" max="12" value="6"></div>
+    <span class="sbadge" id="si">-- / -- steps</span>
+  </div>
+  <div class="tg">
+    <div class="card">
+      <div class="card-h"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Edit Graph -- D-diagonal walk</div>
+      <canvas id="gc"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-h"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg>Operation Steps</div>
+      <div class="ops-list" id="ol"></div>
+    </div>
+  </div>
+  <div class="cur-box" id="cob" style="display:none"><div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px">Current step</div><div id="coc"></div></div>
+</div>
+
+<!-- THEORY -->
+<div class="panel" id="panel-theory">
+  <div class="th-block">
+    <h2><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>1. Edit Graph -- How Myers Thinks About Diff</h2>
+    <p>The key insight in Myers' paper is that finding the diff between two files is actually the same problem as finding the shortest path through a grid. I didn't fully get this the first time I read it, but once it clicks it makes the whole algorithm obvious.</p>
+    <p>You build a grid with (m+1) columns and (n+1) rows where m = len(A) and n = len(B). Each point <span class="f">(i,j)</span> just means "I've looked at i lines from A and j lines from B so far."</p>
+    <div class="cb2">->  right:    (i,j) -> (i+1, j  )   we deleted A[i]        cost = 1
+↓  down:     (i,j) -> (i,   j+1)   we inserted B[j]       cost = 1
+↘ diagonal: (i,j) -> (i+1, j+1)   A[i] == B[j], free!    cost = 0  (called a "snake")</div>
+    <p>So finding the minimal diff = finding the path from (0,0) to (m,n) that uses as few right/down moves as possible. The diagonal moves are free because matching lines don't cost anything. Edit distance D = number of non-diagonal moves.</p>
+    <div class="info-b">
+      <strong>Key formula:</strong>&nbsp;&nbsp;<span class="f">D = |A| + |B| - 2.LCS(A,B)</span>&nbsp;&nbsp;->&nbsp;&nbsp;<span class="f">LCS = (|A|+|B|-D) / 2</span><br><br>
+      This means the longer the common subsequence between the two files, the smaller D is -- which makes sense. If the files are identical, LCS = N and D = 0.
+    </div>
+    <div class="arch-wrap"><canvas class="arch" id="gt" height="210"></canvas></div>
+  </div>
+
+  <div class="th-block">
+    <h2><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>2. The V[k] Trick -- How Myers Gets O(N) Space</h2>
+    <p>This was the part that took me longest to understand. Myers defines a diagonal number <span class="f">k = x - y</span>. Every point on the same diagonal has the same k value. The clever part: instead of storing the whole grid, you only need to track the furthest-right x you've reached on each diagonal. That's V[k].</p>
+    <p>So instead of an O(mn) table, you just have a single array V of size 2N+1. The algorithm expands outward -- for d=0, d=1, d=2 ... -- and at each d it tries all odd or even diagonals (they alternate). The first time it reaches (m,n), D is found.</p>
+    <div class="cb2"><span class="kw">def</span> <span class="fn">myers_forward</span>(A, B):
+    m, n = <span class="fn">len</span>(A), <span class="fn">len</span>(B)
+    V = {<span class="nm">1</span>: <span class="nm">0</span>}   <span class="cm"># V[k] = furthest x we've reached on diagonal k</span>
+    trace = []   <span class="cm"># need to save each step for the traceback later</span>
+
+    <span class="kw">for</span> d <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">0</span>, m+n+<span class="nm">1</span>):
+        trace.<span class="fn">append</span>(<span class="fn">dict</span>(V))
+        <span class="kw">for</span> k <span class="kw">in</span> <span class="fn">range</span>(-d, d+<span class="nm">1</span>, <span class="nm">2</span>):
+            <span class="cm"># decide: did we come from above (insert) or left (delete)?</span>
+            <span class="kw">if</span> k == -d <span class="kw">or</span> (k != d <span class="kw">and</span> V[k-<span class="nm">1</span>] &lt; V[k+<span class="nm">1</span>]):
+                x = V[k+<span class="nm">1</span>]        <span class="cm"># came from above = insert</span>
+            <span class="kw">else</span>:
+                x = V[k-<span class="nm">1</span>] + <span class="nm">1</span>    <span class="cm"># came from left = delete</span>
+            y = x - k
+            <span class="cm"># follow any free diagonal moves (matching lines)</span>
+            <span class="kw">while</span> x &lt; m <span class="kw">and</span> y &lt; n <span class="kw">and</span> A[x] == B[y]:
+                x += <span class="nm">1</span>
+                y += <span class="nm">1</span>
+            V[k] = x
+            <span class="kw">if</span> x >= m <span class="kw">and</span> y >= n:
+                <span class="kw">return</span> <span class="fn">backtrack</span>(trace, A, B, d)
+
+<span class="kw">def</span> <span class="fn">backtrack</span>(trace, A, B, D):
+    <span class="cm"># walk backwards through the saved snapshots to rebuild the edit list</span>
+    ops = []
+    x, y = <span class="fn">len</span>(A), <span class="fn">len</span>(B)
+    <span class="kw">for</span> d <span class="kw">in</span> <span class="fn">range</span>(D, <span class="nm">0</span>, -<span class="nm">1</span>):
+        V = trace[d]
+        k = x - y
+        prevK = k+<span class="nm">1</span> <span class="kw">if</span> (k == -d <span class="kw">or</span> (k != d <span class="kw">and</span> V[k-<span class="nm">1</span>] &lt; V[k+<span class="nm">1</span>])) <span class="kw">else</span> k-<span class="nm">1</span>
+        px = V[prevK]
+        py = px - prevK
+        <span class="kw">while</span> x > px <span class="kw">and</span> y > py:
+            ops.insert(<span class="nm">0</span>, {<span class="sr">'op'</span>: <span class="sr">'eq'</span>, <span class="sr">'a'</span>: x-<span class="nm">1</span>, <span class="sr">'b'</span>: y-<span class="nm">1</span>})
+            x -= <span class="nm">1</span>; y -= <span class="nm">1</span>
+        <span class="kw">if</span> x == px:
+            ops.insert(<span class="nm">0</span>, {<span class="sr">'op'</span>: <span class="sr">'ins'</span>, <span class="sr">'b'</span>: y-<span class="nm">1</span>}); y -= <span class="nm">1</span>
+        <span class="kw">else</span>:
+            ops.insert(<span class="nm">0</span>, {<span class="sr">'op'</span>: <span class="sr">'del'</span>, <span class="sr">'a'</span>: x-<span class="nm">1</span>}); x -= <span class="nm">1</span>
+    <span class="kw">return</span> ops</div>
+  </div>
+
+  <div class="th-block">
+    <h2><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>3. Why It's Actually O(ND)</h2>
+    <div class="proof">
+      <div class="proof-lbl"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Theorem 1 -- Time: Θ(ND)</div>
+      <p>At each value of d, we scan (2d+1) diagonals. The snake steps (free diagonal slides) can total at most m+n across the whole run, because each element can only be matched once. So total work = sum of diagonal scans + snake cost = Σ(2d+1) + O(N) = O(D^2) + O(N). Since D ≤ N this gives <span class="f">O(ND)</span>. The reason this matters: for a typical commit where D is small (say 10 changes in a 500-line file), it's basically O(N) in practice.</p>
+    </div>
+    <div class="proof">
+      <div class="proof-lbl"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Theorem 2 -- Space: O(N)</div>
+      <p>At any point in the algorithm, we only need V[-d..d]. That's at most 2N+1 integers -- way less than an O(mn) grid. The traceback needs snapshots too but each snapshot is also O(N), and there are at most D snapshots. Myers also describes a divide-and-conquer version that reduces this further but I implemented the snapshot approach here since it's easier to visualize.</p>
+    </div>
+    <div class="proof">
+      <div class="proof-lbl"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Theorem 3 -- Space-Optimized LCS: O(min(m,n))</div>
+      <p>For the LCS length itself (not traceback), you can get away with just two rows: prev[] and curr[]. You swap them each iteration and never look further back. This is "Variation 1" in the paper. It means for a 1000-line file you need 2000 integers instead of 1,000,000 -- about 500x less memory.</p>
+    </div>
+    <p style="font-size:13px;color:var(--t2);margin-top:14px;margin-bottom:6px">Here's the two-row implementation -- I tested this against the naive O(mn) version and they give the same results:</p>
+    <div class="cb2"><span class="cm"># two-row LCS -- only needs O(min(m,n)) space</span>
+<span class="cm"># swap A/B so B is always the shorter one</span>
+<span class="kw">def</span> <span class="fn">lcs_len</span>(A, B):
+    <span class="kw">if</span> <span class="fn">len</span>(A) &lt; <span class="fn">len</span>(B):
+        A, B = B, A
+    m, n = <span class="fn">len</span>(A), <span class="fn">len</span>(B)
+    prev = [<span class="nm">0</span>] * (n + <span class="nm">1</span>)
+    curr = [<span class="nm">0</span>] * (n + <span class="nm">1</span>)
+
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, m + <span class="nm">1</span>):
+        <span class="kw">for</span> j <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">1</span>, n + <span class="nm">1</span>):
+            <span class="kw">if</span> A[i-<span class="nm">1</span>] == B[j-<span class="nm">1</span>]:
+                curr[j] = prev[j-<span class="nm">1</span>] + <span class="nm">1</span>
+            <span class="kw">else</span>:
+                curr[j] = <span class="fn">max</span>(prev[j], curr[j-<span class="nm">1</span>])
+        prev, curr = curr, [<span class="nm">0</span>] * (n + <span class="nm">1</span>)  <span class="cm"># reuse curr next round</span>
+
+    <span class="kw">return</span> prev[n]
+
+<span class="cm"># quick sanity check:</span>
+<span class="cm"># lcs_len(["a","b","c"], ["a","c"]) == 2  -- correct</span>
+<span class="cm">#</span>
+<span class="cm"># memory: N=1000 -> 2x1001 ints vs 1001x1001 = ~500x savings</span></div>
+  </div>
+
+  <div class="th-block">
+    <h2><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>4. Why the Old Approach Doesn't Scale</h2>
+    <p>Before reading this paper I thought the standard LCS DP table was fine. But once you look at the numbers it's pretty clear why Git couldn't use it:</p>
+    <div class="cb2"><span class="cm"># Real-world numbers</span>
+Classical LCS on two 1000-line files:
+  time:   O(1000 * 1000) = 1,000,000 operations
+  memory: 1,000,000 integers ~ 4MB just for the table
+
+Myers on same files with D=20 changes:
+  time:   O(1000 * 20)  = 20,000 operations   -- 50x faster
+  memory: ~2,000 integers                      -- 500x less
+
+<span class="cm"># On a real repo (linux kernel, ~70k files):</span>
+<span class="cm"># Classical would need gigabytes just for the DP tables</span>
+<span class="cm"># Myers stays fast because most commits only touch a few lines</span></div>
+    <p>The reason Myers works so well in practice is that D (the number of actual changes) is usually tiny compared to N. A 500-line file with a 3-line bugfix has D=3. Myers essentially does O(N) work in that case. The worst case is D=N (completely different files) which gives O(N^2), but that almost never happens in real version control.</p>
+    <p>Git actually uses a variant called "histogram diff" by default now, which handles repeated lines better. But Myers is still the baseline that everything else is compared against, and it's what's implemented here.</p>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="panel" id="panel-arch">
+  <div class="sec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Architecture Diagram -- System Flow</div>
+  <div class="arch-wrap"><canvas class="arch" id="arch-canvas" height="420"></canvas></div>
+  <div class="card" style="margin-top:14px">
+    <div class="card-h"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Component Descriptions</div>
+    <div class="card-b">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:8px">Input Layer</div>
+          <p style="font-size:12px;color:var(--t2);line-height:1.7"><strong>Input Parser:</strong> Splits files A and B into line arrays. Comparison unit is the line (line-level diff).<br><strong>Preprocessor:</strong> Handles empty lines and whitespace normalization.</p>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:8px">Myers Core</div>
+          <p style="font-size:12px;color:var(--t2);line-height:1.7"><strong>Forward Pass:</strong> Fills V[k] array across D=0,1,2... iterations.<br><strong>Trace Store:</strong> Saves V snapshots at each d for traceback.<br><strong>Backtrack:</strong> Reads trace in reverse to produce the operations list.</p>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:8px">Output Layer</div>
+          <p style="font-size:12px;color:var(--t2);line-height:1.7"><strong>Hunk Builder:</strong> Groups consecutive changes into hunks, adds 3-line context.<br><strong>Unified Formatter:</strong> Produces standard diff output in @@ -a,b +c,d @@ format.</p>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--purple);margin-bottom:8px">Visualization Layer</div>
+          <p style="font-size:12px;color:var(--t2);line-height:1.7"><strong>Edit Graph Canvas:</strong> Draws the D-diagonal walk step by step.<br><strong>Step Controller:</strong> Manages forward/back/play logic and controls animation speed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLEXITY -->
+<div class="panel" id="panel-bench">
+  <div class="sec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Complexity Analysis &amp; Live Benchmark</div>
+  <div class="cx-grid">
+    <div class="cx-card"><div class="cx-lbl">Time -- Θ Notation</div><div class="cx-f">Θ(ND)</div><div class="cx-n">N=max(|A|,|B|), D=edit distance. With similar files D≪N -> fast. Fully different files D=N -> O(N^2).</div></div>
+    <div class="cx-card"><div class="cx-lbl">Space -- Optimized</div><div class="cx-f">O(min(m,n))</div><div class="cx-n">Myers Variation 1: two-row DP technique reduces table space to O(min(m,n)). Massive savings vs. classic O(mn).</div></div>
+    <div class="cx-card"><div class="cx-lbl">Best Case -- Ω</div><div class="cx-f">Ω(N)</div><div class="cx-n">D=0 (identical files): reading all lines is mandatory. Lower bound Ω(N) -- cannot go below this.</div></div>
+    <div class="cx-card"><div class="cx-lbl">Worst Case</div><div class="cx-f">O(N^2)</div><div class="cx-n">D=N (completely different): rare in real diff usage. In practice D=O(√N) is achievable.</div></div>
+    <div class="cx-card"><div class="cx-lbl">LCS Relation</div><div class="cx-f">D=m+n-2L</div><div class="cx-n">L=LCS length. Edit distance and LCS are directly related; computing one gives the other in O(1).</div></div>
+    <div class="cx-card"><div class="cx-lbl">Traceback Space</div><div class="cx-f">O(D.N)</div><div class="cx-n">V snapshot stored at each step d. Can be reduced to O(N) with divide-and-conquer extension.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Live Performance Test -- O(ND) vs O(N^2)</div>
+    <div class="card-b">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Line Count (N)</div>
+          <input type="range" id="bn" min="10" max="5000" value="500" step="1" style="width:160px;accent-color:var(--blue)">
+          <span id="bnv" style="font-family:var(--mono);font-size:12px;color:var(--blue);margin-left:8px">500</span>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">Change Rate (%)</div>
+          <input type="range" id="bd" min="0" max="100" value="10" step="1" style="width:160px;accent-color:var(--amber)">
+          <span id="bdv" style="font-family:var(--mono);font-size:12px;color:var(--amber);margin-left:8px">10%</span>
+        </div>
+        <button class="btn btn-pr" onclick="runBench()" style="margin-top:16px">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>Run Test
+        </button>
+      </div>
+      <canvas id="bc" style="width:100%;height:220px;display:block"></canvas>
+      <div id="br" style="margin-top:12px;font-size:12px;color:var(--t2);font-family:var(--mono)"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DOCS -->
+<footer class="footer">
+  <div class="footer-l">Algorithm Analysis Final . Eren Topuoglu . DiffViz</div>
+  <div class="footer-r">Myers, E.W. (1986) . Algorithmica 1(1–4):251–266</div>
+</footer>
+</div>
+
+<script>
+"use strict";
+function myersDiff(a,b){
+  const m=a.length,n=b.length,maxD=m+n,off=maxD+1;
+  const V=new Int32Array(2*maxD+3);V[off+1]=0;
+  const trace=[];
+  for(let d=0;d<=maxD;d++){
+    trace.push(new Int32Array(V));
+    for(let k=-d;k<=d;k+=2){
+      let x;
+      if(k===-d||(k!==d&&V[off+k-1]<V[off+k+1]))x=V[off+k+1];
+      else x=V[off+k-1]+1;
+      let y=x-k;
+      while(x<m&&y<n&&a[x]===b[y]){x++;y++;}
+      V[off+k]=x;
+      if(x>=m&&y>=n){const ops=backtrack(a,b,trace,off,d);return{d,trace,off,ops};}
+    }
+  }
+  return{d:maxD,trace,off,ops:[]};
+}
+function backtrack(a,b,trace,off,D){
+  const ops=[];let x=a.length,y=b.length;
+  for(let d=D;d>=1;d--){
+    const V=trace[d],k=x-y;
+    let pk=k===-d||(k!==d&&V[off+k-1]<V[off+k+1])?k+1:k-1;
+    const px=V[off+pk],py=px-pk;
+    while(x>px&&y>py){ops.unshift({op:'eq',a:x-1,b:y-1});x--;y--;}
+    if(x===px){ops.unshift({op:'ins',b:y-1});y--;}
+    else{ops.unshift({op:'del',a:x-1});x--;}
+  }
+  while(x>0&&y>0){ops.unshift({op:'eq',a:x-1,b:y-1});x--;y--;}
+  return ops;
+}
+function sw(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',['diff','trace','theory','arch','bench'][i]===id));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('panel-'+id).classList.add('on');
+  if(id==='trace'&&window._td){setTimeout(()=>{uT();},40);}
+  if(id==='theory'){setTimeout(drawGT,40);}
+  if(id==='arch'){setTimeout(drawArch,40);}
+  if(id==='bench'){setTimeout(()=>drawBC(parseInt(document.getElementById('bn').value),parseInt(document.getElementById('bd').value)),40);}
+}
+function e(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function buildHunks(ops,a,b,ctx=3){
+  const hunks=[];let cur=null,ai=0,bi=0;
+  ops.forEach((op,idx)=>{
+    const changed=op.op!=='eq';
+    if(changed){
+      if(!cur){
+        const cs=Math.max(0,idx-ctx);
+        cur={aStart:ai-(idx-cs),bStart:bi-(idx-cs),lines:[]};
+        for(let c=cs;c<idx;c++){const cop=ops[c];if(cop.op==='eq')cur.lines.push({type:'ctx',txt:a[cop.a],ao:cop.a,bo:cop.b});}
+      }
+      if(op.op==='del')cur.lines.push({type:'del',txt:a[op.a],ao:op.a});
+      else cur.lines.push({type:'add',txt:b[op.b],bo:op.b});
+    } else {
+      if(cur){
+        let end=true;
+        for(let f=idx+1;f<Math.min(idx+ctx+1,ops.length);f++){if(ops[f].op!=='eq'){end=false;break;}}
+        cur.lines.push({type:'ctx',txt:a[op.a],ao:op.a,bo:op.b});
+        if(end){hunks.push(cur);cur=null;}
+      }
+    }
+    if(op.op==='eq'){ai++;bi++;}else if(op.op==='del'){ai++;}else{bi++;}
+  });
+  if(cur)hunks.push(cur);
+  return hunks;
+}
+function runDiff(){
+  const aL=document.getElementById('tA').value.split('\n');
+  const bL=document.getElementById('tB').value.split('\n');
+  const{d,trace,off,ops}=myersDiff(aL,bL);
+  let ins=0,del=0;
+  ops.forEach(o=>{if(o.op==='ins')ins++;if(o.op==='del')del++;});
+  const tot=aL.length+bL.length;
+  const sim=tot>0?((tot-d)/tot*100).toFixed(1):'100.0';
+  document.getElementById('s-i').textContent='+'+ins;
+  document.getElementById('s-d').textContent='-'+del;
+  document.getElementById('s-e').textContent=d;
+  document.getElementById('s-sim').textContent=sim+'%';
+  const hunks=buildHunks(ops,aL,bL,3);
+  let html=`<div class="diff-shell"><div class="diff-bar">
+    <span class="df">a/file.py</span><span style="color:var(--t3);font-size:11px">-></span><span class="df">b/file.py</span>
+    <div class="chips"><span class="chip chip-g">+${ins}</span><span class="chip chip-r">-${del}</span><span class="chip chip-b">D=${d}</span></div>
+  </div>`;
+  if(hunks.length===0){html+=`<div style="padding:16px;color:var(--t2);font-size:12px;text-align:center">Files are identical -- edit distance 0</div>`;}
+  hunks.forEach(h=>{
+    let ac=0,bc=0;
+    h.lines.forEach(l=>{if(l.type!=='add')ac++;if(l.type!=='del')bc++;});
+    const aS=(h.aStart||0)+1,bS=(h.bStart||0)+1;
+    html+=`<div class="dl dl-h"><span class="lno"></span><span class="lnn"></span><span class="dsym"></span><span class="dc">@@ -${aS},${ac} +${bS},${bc} @@</span></div>`;
+    h.lines.forEach(l=>{
+      if(l.type==='del')html+=`<div class="dl dl-d"><span class="lno">${(l.ao||0)+1}</span><span class="lnn"> </span><span class="dsym">-</span><span class="dc">${e(l.txt)}</span></div>`;
+      else if(l.type==='add')html+=`<div class="dl dl-a"><span class="lno"> </span><span class="lnn">${(l.bo||0)+1}</span><span class="dsym">+</span><span class="dc">${e(l.txt)}</span></div>`;
+      else html+=`<div class="dl dl-c"><span class="lno">${(l.ao||0)+1}</span><span class="lnn">${(l.bo||0)+1}</span><span class="dsym"> </span><span class="dc">${e(l.txt)}</span></div>`;
+    });
+  });
+  html+='</div>';
+  document.getElementById('diff-out').innerHTML=html;
+  window._td={aL,bL,ops,trace,off,d};
+  window._ts=0;
+}
+function ls(t){
+  if(t==='clear'){document.getElementById('tA').value='';document.getElementById('tB').value='';return;}
+  if(t==='stack'){
+    document.getElementById('tA').value=`class Stack:
+    def __init__(self):
+        self.data = []
+
+    def push(self, val):
+        self.data.append(val)
+
+    def pop(self):
+        return self.data.pop()
+
+    def size(self):
+        return len(self.data)`;
+    document.getElementById('tB').value=`class Stack:
+    def __init__(self, max_size=None):
+        self.data = []
+        self.max_size = max_size
+
+    def push(self, val):
+        if self.max_size and len(self.data) >= self.max_size:
+            raise OverflowError("Stack is full")
+        self.data.append(val)
+
+    def pop(self):
+        if not self.data:
+            raise IndexError("Stack is empty")
+        return self.data.pop()
+
+    def peek(self):
+        return self.data[-1] if self.data else None
+
+    def size(self):
+        return len(self.data)`;
+  }else if(t==='git'){
+    document.getElementById('tA').value=`# Project README
+This project is a diff tool.
+
+## Installation
+pip install -r requirements.txt
+
+## Usage
+python main.py file1 file2
+
+## License
+MIT`;
+    document.getElementById('tB').value=`# DiffViz -- Myers O(ND) Diff
+This project implements and visualizes the Myers algorithm.
+
+## Requirements
+- Python 3.8+
+- No external dependencies
+
+## Installation
+git clone https://github.com/user/diffviz
+cd diffviz
+
+## Usage
+python main.py file1 file2 [--context 3]
+
+## Tests
+python -m pytest tests/
+
+## License
+MIT License`;
+  }
+}
+let _pi=null;
+function uT(){
+  const td=window._td;if(!td)return;
+  const s=window._ts||0,tot=td.ops.length;
+  document.getElementById('si').textContent=`${s} / ${tot} steps`;
+  ['b-prev','b-first'].forEach(id=>{document.getElementById(id).disabled=s===0;});
+  ['b-next','b-last'].forEach(id=>{document.getElementById(id).disabled=s===tot;});
+  drawEG(td.aL,td.bL,td.ops,s);
+  renderOps(td.ops,s);
+  updCurBox(td.ops,s,td.aL,td.bL);
+}
+function sN(){if(!window._td||window._ts>=window._td.ops.length)return;window._ts++;uT();}
+function sP(){if(!window._ts)return;window._ts--;uT();}
+function goF(){window._ts=0;stopPl();uT();}
+function goL(){if(!window._td)return;window._ts=window._td.ops.length;stopPl();uT();}
+function rT(){window._ts=0;stopPl();uT();}
+function tP(){
+  if(_pi){stopPl();return;}
+  const spd=13-parseInt(document.getElementById('spd').value);
+  document.getElementById('b-play').classList.add('ap');
+  document.getElementById('pi').innerHTML='<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+  document.getElementById('pl').textContent='Pause';
+  _pi=setInterval(()=>{if(!window._td||window._ts>=window._td.ops.length){stopPl();return;}window._ts++;uT();},Math.max(40,spd*65));
+}
+function stopPl(){
+  clearInterval(_pi);_pi=null;
+  document.getElementById('b-play').classList.remove('ap');
+  document.getElementById('pi').innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';
+  document.getElementById('pl').textContent='Play';
+}
+function drawEG(a,b,ops,step){
+  const cv=document.getElementById('gc');if(!cv)return;
+  const ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1;
+  const W=cv.offsetWidth||400,H=cv.offsetHeight||310;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const C={bg:dk?'#0f0f14':'#fff',grid:dk?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)',match:dk?'rgba(74,222,128,0.18)':'rgba(26,127,55,0.12)',text:dk?'#5a5650':'#9b9488',snake:dk?'#4ade80':'#166534',del:dk?'#f87171':'#dc2626',ins:dk?'#60a5fa':'#2563eb',cur:'#fbbf24'};
+  const ms=9,m=Math.min(a.length,ms),n=Math.min(b.length,ms);
+  const pad=34,cW=(W-pad*2)/(m+.4),cH=(H-pad*2)/(n+.4);
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=C.grid;ctx.lineWidth=.5;
+  for(let i=0;i<=m;i++){ctx.beginPath();ctx.moveTo(pad+i*cW,pad);ctx.lineTo(pad+i*cW,pad+n*cH);ctx.stroke();}
+  for(let j=0;j<=n;j++){ctx.beginPath();ctx.moveTo(pad,pad+j*cH);ctx.lineTo(pad+m*cW,pad+j*cH);ctx.stroke();}
+  ctx.strokeStyle=C.match;ctx.lineWidth=1.8;
+  for(let i=0;i<m;i++)for(let j=0;j<n;j++){if(a[i]===b[j]){ctx.beginPath();ctx.moveTo(pad+i*cW,pad+j*cH);ctx.lineTo(pad+(i+1)*cW,pad+(j+1)*cH);ctx.stroke();}}
+  ctx.font='10px JetBrains Mono,monospace';ctx.fillStyle=C.text;ctx.textAlign='center';
+  for(let i=0;i<m;i++)ctx.fillText(String(a[i]).trim().slice(0,5),pad+(i+.5)*cW,pad-11);
+  ctx.textAlign='right';
+  for(let j=0;j<n;j++)ctx.fillText(String(b[j]).trim().slice(0,5),pad-6,pad+(j+.5)*cH+4);
+  const pts=[{x:0,y:0}];let cx2=0,cy2=0;
+  for(let s=0;s<Math.min(step,ops.length);s++){
+    const op=ops[s];
+    if(op.op==='eq'){cx2++;cy2++;}else if(op.op==='del'){cx2++;}else{cy2++;}
+    pts.push({x:Math.min(cx2,m),y:Math.min(cy2,n)});
+  }
+  ctx.lineCap='round';
+  for(let i=1;i<pts.length;i++){
+    const pv=pts[i-1],cu=pts[i],op=ops[i-1];
+    ctx.strokeStyle=op.op==='eq'?C.snake:op.op==='del'?C.del:C.ins;
+    ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(pad+pv.x*cW,pad+pv.y*cH);ctx.lineTo(pad+cu.x*cW,pad+cu.y*cH);ctx.stroke();
+  }
+  const last=pts[pts.length-1];const lx=pad+last.x*cW,ly=pad+last.y*cH;
+  ctx.fillStyle=C.cur;ctx.beginPath();ctx.arc(lx,ly,6,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=C.bg;ctx.lineWidth=2;ctx.stroke();
+  ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='left';
+  [[C.snake,'Match'],[C.del,'Delete'],[C.ins,'Insert'],[C.cur,'Position']].forEach(([cl,lb],i)=>{
+    ctx.fillStyle=cl;ctx.beginPath();ctx.arc(pad+i*75+6,H-10,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.text;ctx.fillText(lb,pad+i*75+14,H-6);
+  });
+}
+function renderOps(ops,step){
+  const el=document.getElementById('ol');
+  if(!ops||!ops.length){el.innerHTML='<div style="padding:16px;color:var(--t3);font-size:12px;text-align:center">Compute a diff first from the Diff Tool tab.</div>';return;}
+  let html='';
+  ops.forEach((op,i)=>{
+    const cur=i===step-1;
+    const tc=op.op==='eq'?'ot-eq':op.op==='del'?'ot-d':'ot-i';
+    const tt=op.op==='eq'?'=== MATCH':op.op==='del'?'- DELETE':'+ INSERT';
+    const desc=op.op==='eq'?`A[${op.a}]=B[${op.b}] match`:op.op==='del'?`A[${op.a}] removed`:`B[${op.b}] inserted`;
+    const cost=op.op==='eq'?'0':'1';
+    html+=`<div class="op-row${cur?' cur':''}"><span class="oi">#${i+1}</span><span class="ot ${tc}">${tt}</span><span class="od">${desc}</span><span class="oc">+${cost}</span></div>`;
+  });
+  el.innerHTML=html;
+  if(step>0){const ce=el.querySelectorAll('.op-row')[step-1];if(ce)ce.scrollIntoView({block:'nearest',behavior:'smooth'});}
+}
+function updCurBox(ops,step,a,b){
+  const box=document.getElementById('cob'),con=document.getElementById('coc');
+  if(!step||step>ops.length){box.style.display='none';return;}
+  box.style.display='block';
+  const op=ops[step-1];
+  const col=op.op==='eq'?'var(--t2)':op.op==='del'?'var(--red)':'var(--green)';
+  const sym=op.op==='eq'?'===':op.op==='del'?'-':'+';
+  const line=op.op==='ins'?b[op.b]:a[op.a];
+  const cost=op.op==='eq'?'(cost: 0 -- snake/match)':'(cost: 1 -- edit operation)';
+  con.innerHTML=`<span style="color:${col};font-size:15px">${sym}</span>&nbsp;&nbsp;<span style="color:var(--tx)">${e(String(line))}</span>&nbsp;&nbsp;<span style="color:var(--t3);font-size:11px">${cost}</span>`;
+}
+function drawGT(){
+  const cv=document.getElementById('gt');if(!cv)return;
+  const ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1;
+  const W=cv.offsetWidth||800,H=210;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const C={bg:dk?'#15151d':'#f5f4ef',grid:dk?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)',match:dk?'rgba(74,222,128,0.2)':'rgba(26,127,55,0.14)',text:dk?'#5a5650':'#9b9488',snake:dk?'#4ade80':'#166534',del:dk?'#f87171':'#dc2626',ins:dk?'#60a5fa':'#2563eb',cur:'#fbbf24'};
+  const A=['abc','def','ghi','jkl'],B=['abc','XYZ','ghi','jkl'];
+  const m=A.length,n=B.length,pad=44,cW=(W-pad*2)/(m+.4),cH=(H-pad*2)/(n+.4);
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=C.grid;ctx.lineWidth=.5;
+  for(let i=0;i<=m;i++){ctx.beginPath();ctx.moveTo(pad+i*cW,pad);ctx.lineTo(pad+i*cW,pad+n*cH);ctx.stroke();}
+  for(let j=0;j<=n;j++){ctx.beginPath();ctx.moveTo(pad,pad+j*cH);ctx.lineTo(pad+m*cW,pad+j*cH);ctx.stroke();}
+  ctx.strokeStyle=C.match;ctx.lineWidth=2;
+  for(let i=0;i<m;i++)for(let j=0;j<n;j++){if(A[i]===B[j]){ctx.beginPath();ctx.moveTo(pad+i*cW,pad+j*cH);ctx.lineTo(pad+(i+1)*cW,pad+(j+1)*cH);ctx.stroke();}}
+  const path=[{x:0,y:0},{x:1,y:1},{x:1,y:2},{x:2,y:3},{x:3,y:4},{x:4,y:4}];
+  const opCols=[C.snake,C.del,C.ins,C.snake,C.snake];
+  ctx.lineCap='round';
+  for(let i=1;i<path.length;i++){const pv=path[i-1],cu=path[i];ctx.strokeStyle=opCols[i-1];ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(pad+pv.x*cW,pad+pv.y*cH);ctx.lineTo(pad+cu.x*cW,pad+cu.y*cH);ctx.stroke();}
+  path.forEach((p,i)=>{ctx.fillStyle=i===0?'#94a3b8':i===path.length-1?C.snake:C.text;ctx.beginPath();ctx.arc(pad+p.x*cW,pad+p.y*cH,5,0,Math.PI*2);ctx.fill();});
+  ctx.font='11px JetBrains Mono,monospace';ctx.fillStyle=C.text;ctx.textAlign='center';
+  A.forEach((c,i)=>ctx.fillText(c,pad+(i+.5)*cW,pad-13));
+  ctx.textAlign='right';
+  B.forEach((c,j)=>ctx.fillText(c,pad-8,pad+(j+.5)*cH+4));
+  ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='left';
+  [[C.snake,'Diagonal = match (cost 0)'],[C.del,'Horizontal = delete (cost 1)'],[C.ins,'Vertical = insert (cost 1)']].forEach(([cl,lb],i)=>{
+    ctx.fillStyle=cl;ctx.beginPath();ctx.arc(pad+i*210+6,H-11,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=C.text;ctx.fillText(lb,pad+i*210+14,H-7);
+  });
+}
+function drawArch(){
+  const cv=document.getElementById('arch-canvas');if(!cv)return;
+  const ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1;
+  const W=cv.offsetWidth||800,H=420;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const C={bg:dk?'#15151d':'#f0efea',text:dk?'#edeae0':'#1a1a1c',t2:dk?'#99948a':'#5a5650',b:dk?'rgba(255,255,255,0.1)':'rgba(0,0,0,0.09)',blue:dk?'#60a5fa':'#2563eb',bluebg:dk?'rgba(96,165,250,0.12)':'rgba(96,165,250,0.1)',green:dk?'#4ade80':'#166534',greenbg:dk?'rgba(74,222,128,0.1)':'rgba(74,222,128,0.1)',amber:dk?'#fbbf24':'#92400e',amberbg:dk?'rgba(251,191,36,0.1)':'rgba(251,191,36,0.1)',purple:dk?'#c084fc':'#7c3aed',purplebg:dk?'rgba(192,132,252,0.1)':'rgba(192,132,252,0.1)',arr:dk?'rgba(255,255,255,0.25)':'rgba(0,0,0,0.2)'};
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  function box(x,y,w,h,bg,bd,lbl,sub){
+    ctx.fillStyle=bg;ctx.strokeStyle=bd;ctx.lineWidth=1;
+    ctx.beginPath();rr(ctx,x,y,w,h,8);ctx.fill();ctx.stroke();
+    ctx.fillStyle=C.text;ctx.font='600 12px Inter,sans-serif';ctx.textAlign='center';
+    ctx.fillText(lbl,x+w/2,y+h/2+(sub?-7:4));
+    if(sub){ctx.fillStyle=C.t2;ctx.font='11px Inter,sans-serif';ctx.fillText(sub,x+w/2,y+h/2+9);}
+  }
+  function arr(x1,y1,x2,y2){
+    ctx.strokeStyle=C.arr;ctx.lineWidth=1.5;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const ang=Math.atan2(y2-y1,x2-x1);
+    ctx.fillStyle=C.arr;ctx.beginPath();
+    ctx.moveTo(x2,y2);ctx.lineTo(x2-9*Math.cos(ang-.4),y2-9*Math.sin(ang-.4));ctx.lineTo(x2-9*Math.cos(ang+.4),y2-9*Math.sin(ang+.4));ctx.closePath();ctx.fill();
+  }
+  function rr(c,x,y,w,h,r){c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);}
+  const bw=140,bh=52,cx2=W/2;
+  box(cx2-bw-20,30,bw,bh,C.bluebg,C.blue,'File A','Original text');
+  box(cx2+20,30,bw,bh,C.bluebg,C.blue,'File B','Modified text');
+  arr(cx2-bw/2-20,82,cx2-60,130);arr(cx2+bw/2+20,82,cx2+60,130);
+  box(cx2-bw/2,128,bw,bh,C.purplebg,C.purple,'Input Parser','Line arrays');
+  arr(cx2,180,cx2,228);
+  box(cx2-bw/2,226,bw,bh,C.amberbg,C.amber,'Forward Pass','Fill V[k]');
+  box(cx2+bw/2+30,226,bw,bh,C.amberbg,C.amber,'Trace Store','V snapshot');
+  arr(cx2+bw/2,252,cx2+bw/2+30,252);
+  arr(cx2,278,cx2,326);
+  box(cx2-bw/2,324,bw,bh,C.amberbg,C.amber,'Backtrack','produce ops[]');
+  arr(cx2,376,cx2,424);
+  box(cx2-bw-20,H-74,bw,bh,C.greenbg,C.green,'Hunk Builder','3-line context');
+  box(cx2+20,H-74,bw,bh,C.greenbg,C.green,'Unified Format','@@ diff output');
+  arr(cx2-60,424,cx2-bw/2-20+bw/2,H-74);arr(cx2+60,424,cx2+20+bw/2,H-74);
+  ctx.font='10px Inter,sans-serif';ctx.fillStyle=C.t2;ctx.textAlign='left';
+  ctx.fillText('Input Layer',18,56);ctx.fillText('Myers Core',18,252);ctx.fillText('Output Layer',18,H-50);
+}
+function runBench(){
+  const N=parseInt(document.getElementById('bn').value);
+  const pct=parseInt(document.getElementById('bd').value)/100;
+  const lines=Array.from({length:N},(_,i)=>'line_'+i+'_data_'+Math.random().toFixed(8));
+  const changed=[...lines];
+  const nc=Math.round(N*pct);
+  for(let i=0;i<nc;i++){const idx=Math.floor(Math.random()*changed.length);Math.random()<.5?changed.splice(idx,0,'new_'+i):changed.splice(idx,1);}
+  const t0=performance.now();const{d}=myersDiff(lines,changed);const t1=performance.now();
+  document.getElementById('br').innerHTML=`N=${N} . D=${d} . Time: ${(t1-t0).toFixed(2)}ms . O(N.D)=${(N*d).toLocaleString()} theoretical . O(N^2)=${(N*N).toLocaleString()} classical`;
+  drawBC(N,d);
+}
+function drawBC(N,D){
+  const cv=document.getElementById('bc');if(!cv)return;
+  const ctx=cv.getContext('2d'),dpr=window.devicePixelRatio||1;
+  const W=cv.offsetWidth||700,H=220;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  const dk=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const C={bg:dk?'#0f0f14':'#fff',grid:dk?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)',text:dk?'#5a5650':'#9b9488',nd:'#60a5fa',n2:'#f87171',axis:dk?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)'};
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,W,H);
+  const pL=52,pR=20,pT=22,pB=36,cW=W-pL-pR,cH=H-pT-pB;
+  const Ns=[50,100,200,500,1000,2000,5000];
+  const Df=D||50,maxV=Math.max(...Ns.map(n=>n*n));
+  function sx(i){return pL+(i/(Ns.length-1))*cW;}
+  function sy(v){return pT+cH-Math.min(v/maxV,1)*cH;}
+  ctx.strokeStyle=C.grid;ctx.lineWidth=.5;
+  for(let g=0;g<=4;g++){const y=pT+(g/4)*cH;ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(pL+cW,y);ctx.stroke();}
+  ctx.strokeStyle=C.n2;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+  ctx.beginPath();Ns.forEach((n,i)=>{const v=n*n;i===0?ctx.moveTo(sx(i),sy(v)):ctx.lineTo(sx(i),sy(v));});ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle=C.nd;ctx.lineWidth=2.5;
+  ctx.beginPath();Ns.forEach((n,i)=>{const v=n*Df;i===0?ctx.moveTo(sx(i),sy(v)):ctx.lineTo(sx(i),sy(v));});ctx.stroke();
+  ctx.strokeStyle=C.axis;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pL,pT);ctx.lineTo(pL,pT+cH);ctx.lineTo(pL+cW,pT+cH);ctx.stroke();
+  ctx.fillStyle=C.text;ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='center';
+  Ns.forEach((n,i)=>ctx.fillText(n>=1000?(n/1000)+'K':n,sx(i),H-8));
+  ctx.textAlign='left';
+  ctx.fillStyle=C.nd;ctx.fillRect(pL,pT,16,3);
+  ctx.fillStyle=C.text;ctx.fillText(`O(N.D) -- D=${Df}`,pL+20,pT+4);
+  ctx.fillStyle=C.n2;ctx.fillRect(pL+140,pT,16,3);
+  ctx.fillStyle=C.text;ctx.fillText('O(N^2) -- Classical LCS',pL+160,pT+4);
+}
+document.getElementById('bn').addEventListener('input',function(){document.getElementById('bnv').textContent=this.value;});
+document.getElementById('bd').addEventListener('input',function(){document.getElementById('bdv').textContent=this.value+'%';});
+window.addEventListener('resize',()=>{
+  const td=window._td;if(td)drawEG(td.aL,td.bL,td.ops,window._ts||0);
+  const ap=document.querySelector('.panel.on');
+  if(ap){
+    if(ap.id==='panel-theory')drawGT();
+    if(ap.id==='panel-arch')drawArch();
+    if(ap.id==='panel-bench')drawBC(parseInt(document.getElementById('bn').value),parseInt(document.getElementById('bd').value));
+  }
+});
+window._ts=0;
+runDiff();
+setTimeout(()=>drawBC(500,50),200);
+</script>
+</body>
+</html>
